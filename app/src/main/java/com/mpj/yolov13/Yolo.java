@@ -7,6 +7,7 @@
 package com.mpj.yolov13;
 
 import android.content.res.AssetManager;
+import android.graphics.Bitmap;
 import android.view.Surface;
 
 public class Yolo {

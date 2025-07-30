@@ -25,6 +25,15 @@
 
 #endif // __ARM_NEON
 
+static jclass objCls = nullptr;
+static jmethodID constructortorId;
+static jfieldID xId;
+static jfieldID yId;
+static jfieldID wId;
+static jfieldID hId;
+static jfieldID labelId;
+static jfieldID probId;
+
 static int draw_unsupported(cv::Mat &rgb) {
   const char text[] = "unsupported";
 
@@ -291,8 +300,8 @@ Java_com_mpj_yolov13_Yolo_detectPicure(JNIEnv *env, jobject thiz, jobject bitmap
     BitmapToMatrix(env,bitmap,rgb);
 
     double start_time = ncnn::get_current_time();
-    std::vector<com::tencent::yoloncnn::Object> objects;
-    __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "%s", modeltype);
+    std::vector<YOLOV13_YOLO_H::Object> objects;
+    
     g_yolo->detect(rgb, objects);
     __android_log_print(ANDROID_LOG_ERROR, "ncnn", "%d", objects.size());
 
@@ -302,7 +311,7 @@ Java_com_mpj_yolov13_Yolo_detectPicure(JNIEnv *env, jobject thiz, jobject bitmap
     };
 
     // init jni glue
-    jclass localObjCls = env->FindClass("com/tencent/yoloncnn/YoloNcnn$Obj");
+    jclass localObjCls = env->FindClass("com/mpj/yolov13/Yolo$Obj");
     objCls = reinterpret_cast<jclass>(env->NewGlobalRef(localObjCls));
 
     constructortorId = env->GetMethodID(objCls, "<init>", "()V");
@@ -318,13 +327,13 @@ Java_com_mpj_yolov13_Yolo_detectPicure(JNIEnv *env, jobject thiz, jobject bitmap
     jobjectArray jObjArray = env->NewObjectArray(objects.size(), objCls, nullptr);
     for (size_t i=0; i<objects.size(); i++)
     {
-        jobject jObj = env->NewObject(objCls, constructortorId, thiz);
-        env->SetFloatField(jObj, xId, objects[i].rect.x);
-        env->SetFloatField(jObj, yId, objects[i].rect.y);
-        env->SetFloatField(jObj, wId, objects[i].rect.width);
-        env->SetFloatField(jObj, hId, objects[i].rect.height);
+        jobject jObj = env->NewObject(objCls, constructortorId);
+        env->SetFloatField(jObj, xId, (jfloat )objects[i].rect.x);
+        env->SetFloatField(jObj, yId, (jfloat )objects[i].rect.y);
+        env->SetFloatField(jObj, wId, (jfloat )objects[i].rect.width);
+        env->SetFloatField(jObj, hId, (jfloat )objects[i].rect.height);
         env->SetObjectField(jObj, labelId, env->NewStringUTF(class_names[objects[i].label]));
-        env->SetFloatField(jObj, probId, objects[i].prob);
+        env->SetFloatField(jObj, probId, (jfloat )objects[i].prob);
 
         env->SetObjectArrayElement(jObjArray, i, jObj);
     }
