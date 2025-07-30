@@ -1,0 +1,13 @@
+<resources>
+	<string name="app_name">yolov13</string>
+	<string-array name="model_array">
+		<item>yolov13n</item>
+		<item>yolov13s</item>
+		<item>yolov13n0728</item>
+	</string-array>
+	<string-array name="cpugpu_array">
+		<item>CPU</item>
+<!--经过测试ncnn最新的库Vulkan跑Yolov13结果有问题-->
+<!--		<item>GPU</item>-->
+	</string-array>
+</resources>
