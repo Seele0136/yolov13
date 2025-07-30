@@ -255,3 +255,82 @@ Java_com_mpj_yolov13_Yolo_setOutputWindow(JNIEnv *env, jobject thiz, jobject sur
 
   return JNI_TRUE;
 }
+
+#define ASSERT(status, ret)     if (!(status)) { return ret; }
+#define ASSERT_FALSE(status)    ASSERT(status, false)
+bool BitmapToMatrix(JNIEnv * env, jobject obj_bitmap, cv::Mat & matrix) {
+    void * bitmapPixels;                                            // Save picture pixel data
+    AndroidBitmapInfo bitmapInfo;                                   // Save picture parameters
+
+    ASSERT_FALSE( AndroidBitmap_getInfo(env, obj_bitmap, &bitmapInfo) >= 0);        // Get picture parameters
+    ASSERT_FALSE( bitmapInfo.format == ANDROID_BITMAP_FORMAT_RGBA_8888
+                  || bitmapInfo.format == ANDROID_BITMAP_FORMAT_RGB_565 );          // Only ARGB? 8888 and RGB? 565 are supported
+    ASSERT_FALSE( AndroidBitmap_lockPixels(env, obj_bitmap, &bitmapPixels) >= 0 );  // Get picture pixels (lock memory block)
+    ASSERT_FALSE( bitmapPixels );
+
+    if (bitmapInfo.format == ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        cv::Mat tmp(bitmapInfo.height, bitmapInfo.width, CV_8UC4, bitmapPixels);    // Establish temporary mat
+        tmp.copyTo(matrix);                                                         // Copy to target matrix
+    } else {
+        cv::Mat tmp(bitmapInfo.height, bitmapInfo.width, CV_8UC2, bitmapPixels);
+        cv::cvtColor(tmp, matrix, cv::COLOR_BGR5652RGB);
+    }
+
+    //convert RGB to BGR
+    cv::cvtColor(matrix,matrix,cv::COLOR_RGB2BGR);
+
+    AndroidBitmap_unlockPixels(env, obj_bitmap);            // Unlock
+    return true;
+}
+
+extern "C"
+JNIEXPORT jobjectArray JNICALL
+Java_com_mpj_yolov13_Yolo_detectPicure(JNIEnv *env, jobject thiz, jobject bitmap) {
+
+    cv::Mat rgb;
+    BitmapToMatrix(env,bitmap,rgb);
+
+    double start_time = ncnn::get_current_time();
+    std::vector<com::tencent::yoloncnn::Object> objects;
+    __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "%s", modeltype);
+    g_yolo->detect(rgb, objects);
+    __android_log_print(ANDROID_LOG_ERROR, "ncnn", "%d", objects.size());
+
+    // objects to Obj[]
+    static const char* class_names[] = {
+        "eye","keratopathy","subconjunctival hemorrhage","cataract","pterygium"
+    };
+
+    // init jni glue
+    jclass localObjCls = env->FindClass("com/tencent/yoloncnn/YoloNcnn$Obj");
+    objCls = reinterpret_cast<jclass>(env->NewGlobalRef(localObjCls));
+
+    constructortorId = env->GetMethodID(objCls, "<init>", "()V");
+
+    xId = env->GetFieldID(objCls, "x", "F");
+    yId = env->GetFieldID(objCls, "y", "F");
+    wId = env->GetFieldID(objCls, "w", "F");
+    hId = env->GetFieldID(objCls, "h", "F");
+    labelId = env->GetFieldID(objCls, "label", "Ljava/lang/String;");
+    probId = env->GetFieldID(objCls, "prob", "F");
+
+
+    jobjectArray jObjArray = env->NewObjectArray(objects.size(), objCls, nullptr);
+    for (size_t i=0; i<objects.size(); i++)
+    {
+        jobject jObj = env->NewObject(objCls, constructortorId, thiz);
+        env->SetFloatField(jObj, xId, objects[i].rect.x);
+        env->SetFloatField(jObj, yId, objects[i].rect.y);
+        env->SetFloatField(jObj, wId, objects[i].rect.width);
+        env->SetFloatField(jObj, hId, objects[i].rect.height);
+        env->SetObjectField(jObj, labelId, env->NewStringUTF(class_names[objects[i].label]));
+        env->SetFloatField(jObj, probId, objects[i].prob);
+
+        env->SetObjectArrayElement(jObjArray, i, jObj);
+    }
+    double elasped = ncnn::get_current_time() - start_time;
+    __android_log_print(ANDROID_LOG_ERROR, "YoloNcnn", "inference time: %.2fms", elasped);
+
+
+    return jObjArray;
+}

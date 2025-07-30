@@ -10,6 +10,18 @@ import android.content.res.AssetManager;
 import android.view.Surface;
 
 public class Yolo {
+
+	public static class Obj
+    {
+        public float x;
+        public float y;
+        public float w;
+        public float h;
+        public String label;
+        public float prob;
+    }
+	
+
 	public native boolean loadModel(AssetManager mgr, int modelid, int cpugpu);
 
 	public native boolean openCamera(int facing);
@@ -17,6 +29,8 @@ public class Yolo {
 	public native boolean closeCamera();
 
 	public native boolean setOutputWindow(Surface surface);
+
+	public native Obj[] detectPicure(Bitmap bitmap);
 
 	static {
 		System.loadLibrary("yolov13");
